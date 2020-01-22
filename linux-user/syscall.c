@@ -497,6 +497,18 @@ static const bitmask_transtbl fcntl_flags_tbl[] = {
 
 _syscall2(int, sys_getcwd1, char *, buf, size_t, size)
 
+static int sys_openat(int dirfd, const char *pathname, int flags, mode_t mode)
+{
+  /*
+   * open(2) has extra parameter 'mode' when called with
+   * flag O_CREAT.
+   */
+  if ((flags & O_CREAT) != 0) {
+      return (openat(dirfd, pathname, flags, mode));
+  }
+  return (openat(dirfd, pathname, flags));
+}
+
 #if defined(TARGET_NR_utimensat) || defined(TARGET_NR_utimensat_time64)
 #if defined(__NR_utimensat)
 #define __NR_sys_utimensat __NR_utimensat
@@ -688,8 +700,6 @@ static type safe_##name(type1 arg1, type2 arg2, type3 arg3, type4 arg4, \
 
 safe_syscall3(ssize_t, read, int, fd, void *, buff, size_t, count)
 safe_syscall3(ssize_t, write, int, fd, const void *, buff, size_t, count)
-safe_syscall4(int, openat, int, dirfd, const char *, pathname, \
-              int, flags, mode_t, mode)
 #if defined(TARGET_NR_wait4) || defined(TARGET_NR_waitpid)
 safe_syscall4(pid_t, wait4, pid_t, pid, int *, status, int, options, \
               struct rusage *, rusage)
@@ -8317,7 +8327,8 @@ static int do_openat(CPUArchState *cpu_env, int dirfd, const char *pathname, int
     };
 
     if (is_proc_myself(pathname, "exe")) {
-        return safe_openat(dirfd, exec_path, flags, mode);
+        int execfd = qemu_getauxval(AT_EXECFD);
+        return execfd ? execfd : sys_openat(dirfd, exec_path, flags, mode);
     }
 
     for (fake_open = fakes; fake_open->filename; fake_open++) {
@@ -8359,7 +8370,7 @@ static int do_openat(CPUArchState *cpu_env, int dirfd, const char *pathname, int
         return fd;
     }
 
-    return safe_openat(dirfd, path(pathname), flags, mode);
+    return sys_openat(dirfd, path(pathname), flags, mode);
 }
 
 #define TIMER_MAGIC 0x0caf0000
