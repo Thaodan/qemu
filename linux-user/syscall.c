@@ -3272,7 +3272,7 @@ static abi_long do_connect(int sockfd, abi_ulong target_addr,
     if (ret)
         return ret;
 
-    return get_errno(safe_connect(sockfd, addr, addrlen));
+    return get_errno(connect(sockfd, addr, addrlen));
 }
 
 /* do_sendrecvmsg_locked() Must return target values and target errnos. */
