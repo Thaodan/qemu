@@ -742,8 +742,6 @@ safe_syscall2(int, flock, int, fd, int, operation)
 safe_syscall4(int, rt_sigtimedwait, const sigset_t *, these, siginfo_t *, uinfo,
               const struct timespec *, uts, size_t, sigsetsize)
 #endif
-safe_syscall4(int, accept4, int, fd, struct sockaddr *, addr, socklen_t *, len,
-              int, flags)
 #if defined(TARGET_NR_nanosleep)
 safe_syscall2(int, nanosleep, const struct timespec *, req,
               struct timespec *, rem)
@@ -3449,6 +3447,19 @@ static abi_long do_sendrecvmmsg(int fd, abi_ulong target_msgvec,
     return ret;
 }
 
+/* If we don't have a system accept4() then just call accept.
+ * The callsites to do_accept4() will ensure that they don't
+ * pass a non-zero flags argument in this config.
+ */
+#ifndef CONFIG_ACCEPT4
+static inline int accept4(int sockfd, struct sockaddr *addr,
+                          socklen_t *addrlen, int flags)
+{
+    assert(flags == 0);
+    return accept(sockfd, addr, addrlen);
+}
+#endif
+
 /* do_accept4() Must return target values and target errnos. */
 static abi_long do_accept4(int fd, abi_ulong target_addr,
                            abi_ulong target_addrlen_addr, int flags)
@@ -3461,7 +3472,7 @@ static abi_long do_accept4(int fd, abi_ulong target_addr,
     host_flags = target_to_host_bitmask(flags, fcntl_flags_tbl);
 
     if (target_addr == 0) {
-        return get_errno(safe_accept4(fd, NULL, NULL, host_flags));
+        return get_errno(accept4(fd, NULL, NULL, host_flags));
     }
 
     /* linux returns EFAULT if addrlen pointer is invalid */
@@ -3479,7 +3490,7 @@ static abi_long do_accept4(int fd, abi_ulong target_addr,
     addr = alloca(addrlen);
 
     ret_addrlen = addrlen;
-    ret = get_errno(safe_accept4(fd, addr, &ret_addrlen, host_flags));
+    ret = get_errno(accept4(fd, addr, &ret_addrlen, host_flags));
     if (!is_error(ret)) {
         host_to_target_sockaddr(target_addr, addr, MIN(addrlen, ret_addrlen));
         if (put_user_u32(ret_addrlen, target_addrlen_addr)) {
