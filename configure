@@ -3485,6 +3485,25 @@ EOF
   fi
 fi
 
+# check if utimensat and futimens are supported
+utimens=no
+cat > $TMPC << EOF
+#define _ATFILE_SOURCE
+#include <stddef.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+
+int main(void)
+{
+    utimensat(AT_FDCWD, "foo", NULL, 0);
+    futimens(0, NULL);
+    return 0;
+}
+EOF
+if compile_prog "" "" ; then
+  utimens=yes
+fi
+
 ##########################################
 # libnuma probe
 
@@ -4592,6 +4611,9 @@ if test "$modules" = "yes"; then
 fi
 if test "$module_upgrades" = "yes"; then
   echo "CONFIG_MODULE_UPGRADES=y" >> $config_host_mak
+fi
+if test "$utimens" = "yes" ; then
+  echo "CONFIG_UTIMENSAT=y" >> $config_host_mak
 fi
 if test "$have_usbfs" = "yes" ; then
   echo "CONFIG_USBFS=y" >> $config_host_mak
