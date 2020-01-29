@@ -1136,6 +1136,27 @@ EOF
 fi
 
 ##########################################
+
+# check if utimensat and futimens are supported
+utimens=no
+cat > $TMPC << EOF
+#define _ATFILE_SOURCE
+#include <stddef.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+
+int main(void)
+{
+    utimensat(AT_FDCWD, "foo", NULL, 0);
+    futimens(0, NULL);
+    return 0;
+}
+EOF
+if compile_prog "" "" ; then
+  utimens=yes
+fi
+
+##########################################
 # functions to probe cross compilers
 
 container="no"
@@ -1625,6 +1646,11 @@ echo all: >> $config_host_mak
 echo "SRC_PATH=$source_path" >> $config_host_mak
 echo "TARGET_DIRS=$target_list" >> $config_host_mak
 echo "GDB=$gdb_bin" >> $config_host_mak
+
+if test "$utimens" = "yes" ; then
+  echo "CONFIG_UTIMENSAT=y" >> $config_host_mak
+fi
+
 if test "$container" != no; then
     echo "RUNC=$runc" >> $config_host_mak
 fi
