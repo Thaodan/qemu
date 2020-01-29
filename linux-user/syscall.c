@@ -510,17 +510,19 @@ static int sys_openat(int dirfd, const char *pathname, int flags, mode_t mode)
 }
 
 #if defined(TARGET_NR_utimensat) || defined(TARGET_NR_utimensat_time64)
-#if defined(__NR_utimensat)
-#define __NR_sys_utimensat __NR_utimensat
-_syscall4(int,sys_utimensat,int,dirfd,const char *,pathname,
-          const struct timespec *,tsp,int,flags)
-#else
+#ifdef CONFIG_UTIMENSAT
 static int sys_utimensat(int dirfd, const char *pathname,
                          const struct timespec times[2], int flags)
 {
-    errno = ENOSYS;
-    return -1;
+    if (pathname == NULL)
+        return futimens(dirfd, times);
+    else
+        return utimensat(dirfd, pathname, times, flags);
 }
+#elif defined(__NR_utimensat)
+#define __NR_sys_utimensat __NR_utimensat
+_syscall4(int,sys_utimensat,int,dirfd,const char *,pathname,
+          const struct timespec *,tsp,int,flags)
 #endif
 #endif /* TARGET_NR_utimensat */
 
