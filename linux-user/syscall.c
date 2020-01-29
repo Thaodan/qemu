@@ -503,7 +503,7 @@ static int sys_openat(int dirfd, const char *pathname, int flags, mode_t mode)
    * open(2) has extra parameter 'mode' when called with
    * flag O_CREAT.
    */
-  if ((flags & O_CREAT) != 0) {
+  if ((flags & O_CREAT) != 0 || ((flags) & O_TMPFILE) == O_TMPFILE) {
       return (openat(dirfd, pathname, flags, mode));
   }
   return (openat(dirfd, pathname, flags));
