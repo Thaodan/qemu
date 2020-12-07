@@ -385,8 +385,10 @@ enum {
 
 /* The commpage only exists for 32 bit kernels */
 
-#define ARM_COMMPAGE (intptr_t)0xffff0f00u
+#define ARM_COMMPAGE 0
+#define init_guest_commpage() true
 
+#if 0
 static bool init_guest_commpage(void)
 {
     void *want = g2h_untagged(ARM_COMMPAGE & -qemu_host_page_size);
@@ -410,6 +412,7 @@ static bool init_guest_commpage(void)
     }
     return true;
 }
+#endif
 
 #define ELF_HWCAP get_elf_hwcap()
 #define ELF_HWCAP2 get_elf_hwcap2()
