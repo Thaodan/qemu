@@ -417,8 +417,10 @@ enum {
 
 /* The commpage only exists for 32 bit kernels */
 
-#define HI_COMMPAGE (intptr_t)0xffff0f00u
+#define HI_COMMPAGE 0
+#define init_guest_commpage() true
 
+#if 0
 static bool init_guest_commpage(void)
 {
     abi_ptr commpage = HI_COMMPAGE & -qemu_host_page_size;
@@ -446,6 +448,7 @@ static bool init_guest_commpage(void)
                    PAGE_READ | PAGE_EXEC | PAGE_VALID);
     return true;
 }
+#endif
 
 #define ELF_HWCAP get_elf_hwcap()
 #define ELF_HWCAP2 get_elf_hwcap2()
