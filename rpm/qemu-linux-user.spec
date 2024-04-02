@@ -66,7 +66,19 @@ provides programs to run user space binaries and libraries meant for another
 architecture. The syscall interface is intercepted and execution below the
 syscall layer occurs on the native hardware and operating system.
 
-%files
+
+%package dynamic
+Summary:        CPU emulator for user space dynamic
+
+%description dynamic
+QEMU provides CPU emulation along with other related capabilities. This package
+provides programs to run user space binaries and libraries meant for another
+architecture. The syscall interface is intercepted and execution below the
+syscall layer occurs on the native hardware and operating system.
+
+Dynamicly linked
+
+%files -f binfmt.files 
 %doc README.rst VERSION
 %license COPYING COPYING.LIB LICENSE
 %_bindir/qemu-aarch64
@@ -105,7 +117,45 @@ syscall layer occurs on the native hardware and operating system.
 %_bindir/qemu-xtensa
 %_bindir/qemu-xtensaeb
 %_sbindir/qemu-binfmt-conf.sh
-%_prefix/lib/binfmt.d/qemu-*.conf
+
+%files dynamic -f binfmt-dynamic.files
+%doc README.rst VERSION
+%license COPYING COPYING.LIB LICENSE
+%_bindir/qemu-aarch64-dynamic
+%_bindir/qemu-aarch64_be-dynamic
+%_bindir/qemu-alpha-dynamic
+%_bindir/qemu-arm-dynamic
+%_bindir/qemu-armeb-dynamic
+%_bindir/qemu-cris-dynamic
+%_bindir/qemu-hexagon-dynamic
+%_bindir/qemu-hppa-dynamic
+%_bindir/qemu-i386-dynamic
+%_bindir/qemu-loongarch64-dynamic
+%_bindir/qemu-m68k-dynamic
+%_bindir/qemu-microblaze-dynamic
+%_bindir/qemu-microblazeel-dynamic
+%_bindir/qemu-mips-dynamic
+%_bindir/qemu-mips64-dynamic
+%_bindir/qemu-mips64el-dynamic
+%_bindir/qemu-mipsel-dynamic
+%_bindir/qemu-mipsn32-dynamic
+%_bindir/qemu-mipsn32el-dynamic
+%_bindir/qemu-nios2-dynamic
+%_bindir/qemu-or1k-dynamic
+%_bindir/qemu-ppc-dynamic
+%_bindir/qemu-ppc64-dynamic
+%_bindir/qemu-ppc64le-dynamic
+%_bindir/qemu-riscv32-dynamic
+%_bindir/qemu-riscv64-dynamic
+%_bindir/qemu-s390x-dynamic
+%_bindir/qemu-sh4-dynamic
+%_bindir/qemu-sh4eb-dynamic
+%_bindir/qemu-sparc-dynamic
+%_bindir/qemu-sparc32plus-dynamic
+%_bindir/qemu-sparc64-dynamic
+%_bindir/qemu-x86_64-dynamic
+%_bindir/qemu-xtensa-dynamic
+%_bindir/qemu-xtensaeb-dynamic
 
 %prep
 %autosetup -n qemu-%{version} -p1
@@ -128,8 +178,12 @@ sed -i '/^\ \ \ about\/index.*/i \ \ \ supported.rst' docs/index.rst
 
 find . -iname ".git" -exec rm -rf {} +
 
-mkdir -p %blddir
-cd %blddir
+
+
+buildfn() {
+variant=$1
+mkdir -p %blddir$variant
+cd %blddir$variant
 
 # We define a few general and common options and then we disable
 # pretty much everything. Afterwards, there is a section for each
@@ -318,25 +372,68 @@ EXTRA_CFLAGS="$(echo %{optflags} | sed -E 's/-[A-Z]?_FORTIFY_SOURCE[=]?[0-9]*//g
 	--enable-linux-user \
 	--enable-selinux \
 	--enable-tcg \
-	--static
+	$variant
 
 echo "=== Content of config-host.mak: ==="
 cat config-host.mak
 echo "=== ==="
 
 %make_build
+}
+
+buildfn
+buildfn -static
 
 %install
 cd %blddir
 
 %make_build install DESTDIR=%{buildroot}
 
+for target in %{buildroot}%{_bindir}/* ; do
+        mv ${target} $target-dynamic
+done
+
+cd %blddir-static
+%make_build install DESTDIR=%{buildroot}
+
+cd ..
+
 rm -rf %{buildroot}%_datadir/qemu/keymaps
 unlink %{buildroot}%_datadir/qemu/trace-events-all
+
 install -d -m 755 %{buildroot}%_sbindir
 install -m 755 scripts/qemu-binfmt-conf.sh %{buildroot}%_sbindir
+
 install -d -m 755 %{buildroot}%{_prefix}/lib/binfmt.d/
-scripts/qemu-binfmt-conf.sh --systemd ALL --persistent yes --preserve-argv0 yes --exportdir %{buildroot}%{_prefix}/lib/binfmt.d/
+
+scripts/qemu-binfmt-conf.sh --systemd ALL \
+                            --persistent yes \
+                            --preserve-argv0  yes \
+                            --exportdir %{buildroot}%{_prefix}/lib/binfmt.d/ \
+                            --qemu-suffix -dynamic
+for target in %{buildroot}%{_prefix}/lib/binfmt.d/*.conf ; do
+        mv ${target} $(echo $target | sed 's/.conf/-dynamic.conf/')
+done
+
+scripts/qemu-binfmt-conf.sh --systemd ALL \
+                            --persistent yes \
+                            --preserve-argv0 yes \
+                            --exportdir %{buildroot}%{_prefix}/lib/binfmt.d/
+
+(
+    rm -f %{srcdir}/binfmt-dynamic.files
+    rm -f %{srcdir}/binfmt.files
+    cd %{buildroot}%{_prefix}/lib/binfmt.d/
+    for binfmt in *.conf ; do
+        case $binfmt in
+            *-dynamic.conf)
+                echo %{_prefix}/lib/binfmt.d/$binfmt >> %{srcdir}/binfmt-dynamic.files ;;
+            *.conf)
+                echo %{_prefix}/lib/binfmt.d/$binfmt >> %{srcdir}/binfmt.files ;;
+        esac
+    done
+)
+
 
 %fdupes -s %{buildroot}
 
